@@ -8,6 +8,17 @@ import time
 import matplotlib.pyplot as plt
 from scipy.misc import logsumexp
 
+# character index
+e = 0
+t = 1
+a = 2
+i = 3
+n = 4
+o = 5
+s = 6
+h = 7
+r = 8
+d = 9
 
 charMap = {0:'e', 1:'t', 2:'a', 3:'i', 4:'n', 5:'o', 6:'s', 7:'h', 8:'r', 9:'d'}
 invCharMap = {'e':0, 't':1, 'a':2, 'i':3, 'n':4, 'o':5, 's':6, 'h':7, 'r':8, 'd':9}
@@ -23,6 +34,18 @@ for i in range(1, 401):
     feature = np.genfromtxt(filename)
     word_feature.append((word, feature))
 
+
+
+'''
+f = open('data/test_words.txt', 'r')
+trainWords = f.readlines()
+word_feature = list()
+for i in range(1, 201):
+    filename = 'data/test_img' + str(i) + ".txt"
+    word = trainWords[i-1][:-1]
+    feature = np.genfromtxt(filename)
+    word_feature.append((word, feature))
+'''
 
 
 
@@ -46,30 +69,16 @@ def computeMessagePassing(features, potentialMap):
     forwardMessages = [np.zeros(10) for i in range((cliqueNumber-1))]
     backwardMessages = [np.zeros(10) for i in range((cliqueNumber-1))]
 
-    # very first forward message
-    #  potentialMapExp = np.exp(potentialMap)
-    # very first forward message
-    maxValue = np.max(potentialMap[0])
-    forwardMessages[0] = maxValue + np.log(np.sum(np.exp(potentialMap[0] - maxValue), axis=0))
-
-
-
-    # rest of the chains
+    forwardMessages[0] = logsumexp(potentialMap[0], axis=0)
+   # rest of the chains
     for k in range(1, len(forwardMessages)):
-#        temp = np.transpose(potentialMap[k]) + forwardMessages[k-1]
-#        maxValue = np.max(temp, axis=None)
-#        forwardMessages[k] = maxValue + np.log(np.sum(np.exp(temp - maxValue), axis=1))
-        forwardMessages[k] = logsumexp((np.transpose(potentialMap[k]) + forwardMessages[k-1]), axis = 1)
+        forwardMessages[k] = logsumexp((np.transpose(potentialMap[k]) + forwardMessages[k-1]), axis=1)
 
    # very first backward message
-    for i in range(10):
-        backwardMessages[cliqueNumber-2][i] = logsumexp(potentialMap[cliqueNumber-1][i])
-   # rest of the chains
+    backwardMessages[cliqueNumber-2] = logsumexp(potentialMap[cliqueNumber-1], axis=1)
 
+   # rest of the chains
     for k in range(cliqueNumber-3,-1,-1):
-#        temp = potentialMap[k+1] + backwardMessages[k+1]
-#        maxValue = np.max(temp, axis=None)
-#       backwardMessages[k] = maxValue + np.log(np.sum(np.exp(temp - maxValue), axis = 1))
         backwardMessages[k] = logsumexp((potentialMap[k+1] + backwardMessages[k+1]), axis=1)
 
 
@@ -78,7 +87,7 @@ def computeMessagePassing(features, potentialMap):
 
 
 
-
+'''
 # for problem 2.3
 def computeLogBeliefs(feature, potentialMap, featureParams, transitiveParams):
  #   potentialMap = cliquePotential(feature)
@@ -95,6 +104,38 @@ def computeLogBeliefs(feature, potentialMap, featureParams, transitiveParams):
 
     beliefs[cliqueNumber-1] =  potentialMap[cliqueNumber-1] + forwardMessages[cliqueNumber-2]
     return beliefs
+'''
+
+# for problem 2.3
+def computeLogBeliefs(feature, potentialMap, featureParams, transitiveParams):
+    messages = computeMessagePassing(feature, potentialMap)
+    forwardMessages = messages[0]
+    backwardMessages = messages[1]
+    cliqueNumber = len(potentialMap)
+
+    beliefs = [np.zeros((10,10)) for i in range((cliqueNumber))]
+    beliefs[0] = potentialMap[0] + backwardMessages[0]
+
+
+ # for the rest ...
+    for k in range(1, cliqueNumber-1):
+        for i in range(10):
+            sum = 0.0
+            for j in range(10):
+                beliefs[k][i][j] = potentialMap[k][i][j] + forwardMessages[k-1][i] + backwardMessages[k][j]
+    #    print(charMap[i] + "\t" + str(belief_2_3[i]))
+
+    # belief for the last cluster
+#    print("B(Y3, Y4)")
+    # delta_{3->2}(Y3) = log \sum_{y4}(exp(Y3, Y4)
+    for i in range(10):
+        sum = 0.0
+        for j in range(10):
+            beliefs[cliqueNumber-1][i][j] =  potentialMap[cliqueNumber-1][i][j] + forwardMessages[cliqueNumber-2][i]
+#        print(charMap[i] + "\t" + str(belief_3_4[i]))
+  #  printETtable(beliefs[-1])
+    return beliefs
+
 
 
 
@@ -143,11 +184,11 @@ def computeLogLikelihood(x):
 
 
 def computeLogLikelihoodTestSet(featureParams, transitiveParams):
-    f = open('data/test_words.txt', 'r')
+    f = open('data/train_words.txt', 'r')
     testWords = f.readlines()
     sum = 0
-    for i in range(1,201):
-        filename = 'data/test_img' + str(i) + ".txt"
+    for i in range(1, 201):
+        filename = 'data/train_img' + str(i) + ".txt"
         feature = np.genfromtxt(filename)
         potentialMap = cliquePotential(feature, featureParams, transitiveParams)
      #   print(testWords[i-1][:-1])
@@ -177,9 +218,17 @@ def gradientFunctionTransitiveParam(featureParams, transitiveParams, N):
             binary[invCharMap[word[j]]][invCharMap[word[j+1]]] = 1
             gradient += binary - marginal_probs[j]
 
-    print(gradient)
+ #   print(gradient/N)
     return gradient/N*(-1)
+def printETRtable(map):
+    print(str(map[e][e]) + "\t" + str(map[e][t]) + "\t" + str(map[e][r]))
+    print(str(map[t][e]) + "\t" + str(map[t][t]) + "\t" + str(map[t][r]))
+    print(str(map[r][e]) + "\t" + str(map[r][t]) + "\t" + str(map[r][r]))
 
+
+def printETtable(map):
+    print(str(map[e][e]) + "\t" + str(map[e][t]))
+    print(str(map[t][e]) + "\t" + str(map[t][t]))
 
 def gradientFunctionFeatureParam(featureParams, transitiveParams, N):
     sum = 0
@@ -189,9 +238,11 @@ def gradientFunctionFeatureParam(featureParams, transitiveParams, N):
         feature = word_feature[i][1]
         potentialMap = cliquePotential(feature, featureParams, transitiveParams)
         negEnergyWord = getCliquePotentialValue(feature, word, potentialMap, featureParams, transitiveParams)
-
         beliefs = computeLogBeliefs(feature, potentialMap, featureParams, transitiveParams)
         marginal_probs = [np.exp(belief - logsumexp(belief, axis=None)) for belief in beliefs]
+    #    expBeliefs = [np.exp(belief) for belief in beliefs]
+    #    marginal_probs2 = [belief / np.sum(belief, axis=None) for belief in expBeliefs]
+
 
         for j in range(len(word)):
             for k in range(len(charMap.keys())):
@@ -205,7 +256,7 @@ def gradientFunctionFeatureParam(featureParams, transitiveParams, N):
                     gradient[k] += (binaryOccurrence - np.sum(marginal_probs[j-1], axis=0)[k]) * feature[j]
 
 
-    print(gradient)
+ #   print(gradient/N)
     return gradient/N*(-1)
 
 
@@ -243,11 +294,11 @@ def main():
     featureParams = np.genfromtxt('model/feature-params.txt')
     transitiveParams = np.genfromtxt('model/transition-params.txt')
 
-  #  computeLogLikelihoodTestSet(featureParams, transitiveParams)
+#    computeLogLikelihoodTestSet(featureParams, transitiveParams)
   #  computeMessagePassing(feature, cliquePotential(feature))
     dataSize = [50, 100, 150, 200, 250, 300, 350, 400]
 
-    gradientFunctionFeatureParam(featureParams, transitiveParams, 50)
+#    gradientFunctionFeatureParam(featureParams, transitiveParams, 50)
 #    gradientFunctionTransitiveParam(featureParams, transitiveParams, 50)
     global N
     trainig_time = list()
@@ -294,7 +345,6 @@ def main():
  #       print(word + "\t" + trueWord + "\t" + (str)(bitDifference))
 #    print(str(np.sum(accuracy)/200))
 #    print((str)((correct)/(correct + incorrect)))
-
 
 if __name__ == "__main__":
     main()

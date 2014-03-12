@@ -4,17 +4,6 @@ import numpy as np
 import itertools
 import math
 
-# character index
-e = 0
-t = 1
-a = 2
-i = 3
-n = 4
-o = 5
-s = 6
-h = 7
-r = 8
-d = 9
 
 charMap = {0:'e', 1:'t', 2:'a', 3:'i', 4:'n', 5:'o', 6:'s', 7:'h', 8:'r', 9:'d'}
 invCharMap = {'e':0, 't':1, 'a':2, 'i':3, 'n':4, 'o':5, 's':6, 'h':7, 'r':8, 'd':9}
