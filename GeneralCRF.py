@@ -137,6 +137,9 @@ def computeLogLikelihood(x):
         potentialMap = cliquePotential(feature, featureParams, transitiveParams)
         negEnergyWord = getCliquePotentialValue(feature, word, potentialMap, featureParams, transitiveParams)
         beliefs = computeLogBeliefs(feature, potentialMap, featureParams, transitiveParams)
+#        print("Beliefs")
+#        print(beliefs)
+
         maxValue = np.max(beliefs[0], axis=None)
         partition = maxValue + np.log(np.sum(np.exp(beliefs[0]-maxValue), axis=None))
         sum += negEnergyWord - partition
@@ -247,7 +250,7 @@ def main():
 
 
   #  computeMessagePassing(feature, cliquePotential(feature))
-    dataSize = [50, 100, 150, 250, 300, 350, 400]
+    dataSize = [250, 300, 350, 400]
 
  #   gradientFunctionFeatureParam(featureParams, transitiveParams, 50)
  #   gradientFunctionTransitiveParam(featureParams, transitiveParams)
