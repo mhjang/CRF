@@ -48,21 +48,18 @@ def computeMessagePassing(features, potentialMap):
     backwardMessages = [np.zeros(10) for i in range((cliqueNumber-1))]
 
     # very first forward message
-    for i in range(10):
-        sum = 0.0
-        for j in range(10):
-            sum = sum + math.exp(potentialMap[0][j][i])
-    #    print(charMap[i] + "\t" + str(math.log(sum)))
-        forwardMessages[0][i] = math.log(sum)
+    #  potentialMapExp = np.exp(potentialMap)
+    # very first forward message
+    maxValue = np.max(potentialMap[0])
+    forwardMessages[0] = maxValue + np.log(np.sum(np.exp(potentialMap[0] - maxValue), axis=0))
+
 
 
     # rest of the chains
     for k in range(1, len(forwardMessages)):
-        for i in range(10):
-            sum = 0.0
-            for j in range(10):
-                sum = sum + math.exp(potentialMap[k][j][i] + forwardMessages[k-1][j])
-            forwardMessages[k][i] = math.log(sum)
+        temp = np.transpose(potentialMap[k]) + forwardMessages[k-1]
+        maxValue = np.max(temp, axis=None)
+        forwardMessages[k] = maxValue + np.log(np.sum(np.exp(temp - maxValue), axis=1))
 
 
    # very first backward message
@@ -75,11 +72,12 @@ def computeMessagePassing(features, potentialMap):
 
    # rest of the chains
     for k in range(cliqueNumber-3,-1,-1):
-     for i in range(10):
-        sum = 0.0
-        for j in range(10):
-            sum = sum + math.exp(potentialMap[k+1][i][j] + backwardMessages[k+1][j])
-        backwardMessages[k][i] = math.log(sum)
+        temp = potentialMap[k+1] + backwardMessages[k+1]
+        maxValue = np.max(temp, axis=None)
+        backwardMessages[k] = maxValue + np.log(np.sum(np.exp(temp - maxValue), axis = 1))
+
+
+
 
     return [forwardMessages, backwardMessages]
 
