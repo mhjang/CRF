@@ -6,7 +6,7 @@ import math
 from scipy import optimize
 import time
 import matplotlib.pyplot as plt
-
+from scipy.misc import logsumexp
 
 
 charMap = {0:'e', 1:'t', 2:'a', 3:'i', 4:'n', 5:'o', 6:'s', 7:'h', 8:'r', 9:'d'}
@@ -25,6 +25,8 @@ for i in range(1, 401):
 
 
 
+
+
 # for problem 2.1
 def cliquePotential(features, featureParams, transitiveParams):
     psimaps = [np.zeros((10,10)) for i in range(len(features)-1)]
@@ -35,9 +37,6 @@ def cliquePotential(features, featureParams, transitiveParams):
         else:
             psimaps[k] = np.reshape(np.sum(featureParams*features[k], axis=1), (10,1)) + (np.sum(featureParams * features[k+1], axis=1)) + transitiveParams
     return psimaps
-
-
-
 
 # for problem 2.2
 
@@ -57,29 +56,27 @@ def computeMessagePassing(features, potentialMap):
 
     # rest of the chains
     for k in range(1, len(forwardMessages)):
-        temp = np.transpose(potentialMap[k]) + forwardMessages[k-1]
-        maxValue = np.max(temp, axis=None)
-        forwardMessages[k] = maxValue + np.log(np.sum(np.exp(temp - maxValue), axis=1))
-
+#        temp = np.transpose(potentialMap[k]) + forwardMessages[k-1]
+#        maxValue = np.max(temp, axis=None)
+#        forwardMessages[k] = maxValue + np.log(np.sum(np.exp(temp - maxValue), axis=1))
+        forwardMessages[k] = logsumexp((np.transpose(potentialMap[k]) + forwardMessages[k-1]), axis = 1)
 
    # very first backward message
     for i in range(10):
-        sum = 0.0
-        for j in range(10):
-            sum = sum + math.exp(potentialMap[cliqueNumber-1][i][j])
-
-        backwardMessages[cliqueNumber-2][i] = math.log(sum)
-
+        backwardMessages[cliqueNumber-2][i] = logsumexp(potentialMap[cliqueNumber-1][i])
    # rest of the chains
-    for k in range(cliqueNumber-3,-1,-1):
-        temp = potentialMap[k+1] + backwardMessages[k+1]
-        maxValue = np.max(temp, axis=None)
-        backwardMessages[k] = maxValue + np.log(np.sum(np.exp(temp - maxValue), axis = 1))
 
+    for k in range(cliqueNumber-3,-1,-1):
+#        temp = potentialMap[k+1] + backwardMessages[k+1]
+#        maxValue = np.max(temp, axis=None)
+#       backwardMessages[k] = maxValue + np.log(np.sum(np.exp(temp - maxValue), axis = 1))
+        backwardMessages[k] = logsumexp((potentialMap[k+1] + backwardMessages[k+1]), axis=1)
 
 
 
     return [forwardMessages, backwardMessages]
+
+
 
 
 # for problem 2.3
@@ -100,12 +97,12 @@ def computeLogBeliefs(feature, potentialMap, featureParams, transitiveParams):
     return beliefs
 
 
+
 # for problem 2.5
 def predictStringWithMarginals(feature, featureParams, transitiveParams):
     potentialMap = cliquePotential(feature, featureParams, transitiveParams)
     beliefs = computeLogBeliefs(feature, potentialMap, featureParams, transitiveParams)
-    expBeliefs = [np.exp(belief) for belief in beliefs]
-    marginal_probs = [belief / np.sum(belief, axis=None) for belief in expBeliefs]
+    marginal_probs = [np.exp(belief - logsumexp(belief, axis=None)) for belief in beliefs]
 
     predictedWord = [charMap[np.argmax(np.max(marginals, axis = 1))] for marginals in marginal_probs]
     predictedWord.append(charMap[np.argmax(np.max(marginal_probs[-1], axis = 0))])
@@ -137,14 +134,11 @@ def computeLogLikelihood(x):
         potentialMap = cliquePotential(feature, featureParams, transitiveParams)
         negEnergyWord = getCliquePotentialValue(feature, word, potentialMap, featureParams, transitiveParams)
         beliefs = computeLogBeliefs(feature, potentialMap, featureParams, transitiveParams)
-#        print("Beliefs")
-#        print(beliefs)
-
-        maxValue = np.max(beliefs[0], axis=None)
-        partition = maxValue + np.log(np.sum(np.exp(beliefs[0]-maxValue), axis=None))
+    #    maxValue = np.max(beliefs[0], axis=None)
+        partition = logsumexp(beliefs[0])
         sum += negEnergyWord - partition
   #      print("negative energy: " + str(negEnergyWord) + ", partition:" + str(partition))
-    print(str(sum/N))
+  #  print(str(sum/N))
     return sum/N*(-1)
 
 
@@ -159,8 +153,8 @@ def computeLogLikelihoodTestSet(featureParams, transitiveParams):
      #   print(testWords[i-1][:-1])
         negEnergyWord = getCliquePotentialValue(feature, testWords[i-1][:-1], potentialMap, featureParams, transitiveParams)
         beliefs = computeLogBeliefs(feature, potentialMap, featureParams, transitiveParams)
-        maxValue = np.max(beliefs[0], axis=None)
-        partition = maxValue + np.log(np.sum(np.exp(beliefs[0]-maxValue), axis=None))
+    #    maxValue = np.max(beliefs[0], axis=None)
+        partition = logsumexp(beliefs[0])
         sum += negEnergyWord - partition
   #      print("negative energy: " + str(negEnergyWord) + ", partition:" + str(partition))
     print("Average Log-likelihood" + str(sum/200))
@@ -175,14 +169,15 @@ def gradientFunctionTransitiveParam(featureParams, transitiveParams, N):
         negEnergyWord = getCliquePotentialValue(feature, word, potentialMap, featureParams, transitiveParams)
 
         beliefs = computeLogBeliefs(feature, potentialMap, featureParams, transitiveParams)
-        expBeliefs = [np.exp(belief) for belief in beliefs]
-        marginal_probs = [belief / np.sum(belief, axis=None) for belief in expBeliefs]
+       # expBeliefs = [np.exp(belief) for belief in beliefs]
+        marginal_probs = [np.exp(belief - logsumexp(belief, axis=None)) for belief in beliefs]
 
         for j in range(len(word)-1):
             binary = np.zeros((10, 10))
             binary[invCharMap[word[j]]][invCharMap[word[j+1]]] = 1
             gradient += binary - marginal_probs[j]
 
+    print(gradient)
     return gradient/N*(-1)
 
 
@@ -196,8 +191,8 @@ def gradientFunctionFeatureParam(featureParams, transitiveParams, N):
         negEnergyWord = getCliquePotentialValue(feature, word, potentialMap, featureParams, transitiveParams)
 
         beliefs = computeLogBeliefs(feature, potentialMap, featureParams, transitiveParams)
-        expBeliefs = [np.exp(belief) for belief in beliefs]
-        marginal_probs = [belief / np.sum(belief, axis=None) for belief in expBeliefs]
+        marginal_probs = [np.exp(belief - logsumexp(belief, axis=None)) for belief in beliefs]
+
         for j in range(len(word)):
             for k in range(len(charMap.keys())):
                 if word[j] == charMap[k]:
@@ -210,7 +205,7 @@ def gradientFunctionFeatureParam(featureParams, transitiveParams, N):
                     gradient[k] += (binaryOccurrence - np.sum(marginal_probs[j-1], axis=0)[k]) * feature[j]
 
 
-   # print(gradient)
+    print(gradient)
     return gradient/N*(-1)
 
 
@@ -239,21 +234,21 @@ def computeModelAccuracy(featureParams, transitiveParams):
 #        accuracy[i-1] = correct/len(word)
   #      print(word + "\t" + trueWord + "\t")
 #    print(str(np.sum(accuracy)/200))
-    print("correct = " + str(correct) + "incorrect = " + str(incorrect))
+ #   print("correct = " + str(correct) + "incorrect = " + str(incorrect))
     accuracy = (float)(correct) / (float)(correct + incorrect)
-    print(accuracy)
+    print("Prediction error:" + str(1-accuracy))
 
 def main():
 
     featureParams = np.genfromtxt('model/feature-params.txt')
     transitiveParams = np.genfromtxt('model/transition-params.txt')
 
-
+  #  computeLogLikelihoodTestSet(featureParams, transitiveParams)
   #  computeMessagePassing(feature, cliquePotential(feature))
-    dataSize = [250, 300, 350, 400]
+    dataSize = [50, 100, 150, 200, 250, 300, 350, 400]
 
- #   gradientFunctionFeatureParam(featureParams, transitiveParams, 50)
- #   gradientFunctionTransitiveParam(featureParams, transitiveParams)
+    gradientFunctionFeatureParam(featureParams, transitiveParams, 50)
+#    gradientFunctionTransitiveParam(featureParams, transitiveParams, 50)
     global N
     trainig_time = list()
     for n in dataSize:
@@ -266,12 +261,12 @@ def main():
         trainig_time.append(t)
         featureParams = np.reshape(sol[0][:10*321], (10, 321))
         transitiveParams = np.reshape(sol[0][10*321:], (10, 10))
-     #   computeModelAccuracy(featureParams, transitiveParams)
+        computeModelAccuracy(featureParams, transitiveParams)
         computeLogLikelihoodTestSet(featureParams, transitiveParams)
-    plt.plot(dataSize, trainig_time)
-    plt.axis(dataSize)
-    plt.ylabel("time (ms)")
-    plt.show()
+ #   plt.plot(dataSize, trainig_time)
+ #   plt.axis(dataSize)
+ #   plt.ylabel("time (ms)")
+ #   plt.show()
  #   print("feature params")
  #   print(featureParams)
  #   print("transitive params")
