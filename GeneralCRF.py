@@ -101,8 +101,9 @@ def computeLogBeliefs(feature, potentialMap, featureParams, transitiveParams):
 
 
 # for problem 2.5
-def predictStringWithMarginals(feature):
-    beliefs = computeLogBeliefs(feature)
+def predictStringWithMarginals(feature, featureParams, transitiveParams):
+    potentialMap = cliquePotential(feature, featureParams, transitiveParams)
+    beliefs = computeLogBeliefs(feature, potentialMap, featureParams, transitiveParams)
     expBeliefs = [np.exp(belief) for belief in beliefs]
     marginal_probs = [belief / np.sum(belief, axis=None) for belief in expBeliefs]
 
@@ -142,6 +143,24 @@ def computeLogLikelihood(x):
   #      print("negative energy: " + str(negEnergyWord) + ", partition:" + str(partition))
     print(str(sum/N))
     return sum/N*(-1)
+
+
+def computeLogLikelihoodTestSet(featureParams, transitiveParams):
+    f = open('data/test_words.txt', 'r')
+    testWords = f.readlines()
+    sum = 0
+    for i in range(1,201):
+        filename = 'data/test_img' + str(i) + ".txt"
+        feature = np.genfromtxt(filename)
+        potentialMap = cliquePotential(feature, featureParams, transitiveParams)
+     #   print(testWords[i-1][:-1])
+        negEnergyWord = getCliquePotentialValue(feature, testWords[i-1][:-1], potentialMap, featureParams, transitiveParams)
+        beliefs = computeLogBeliefs(feature, potentialMap, featureParams, transitiveParams)
+        maxValue = np.max(beliefs[0], axis=None)
+        partition = maxValue + np.log(np.sum(np.exp(beliefs[0]-maxValue), axis=None))
+        sum += negEnergyWord - partition
+  #      print("negative energy: " + str(negEnergyWord) + ", partition:" + str(partition))
+    print("Average Log-likelihood" + str(sum/200))
 
 def gradientFunctionTransitiveParam(featureParams, transitiveParams, N):
     sum = 0
@@ -195,6 +214,32 @@ def gradientFunctionFeatureParam(featureParams, transitiveParams, N):
 
 def getCliquePotentialValue(feature, word, potentialMap, featureParams, transitiveParams):
      return np.sum([potentialMap[i][invCharMap[word[i]]][invCharMap[word[i+1]]] for i in range(len(word)-1)])
+
+
+def computeModelAccuracy(featureParams, transitiveParams):
+    f = open('data/test_words.txt', 'r')
+    testWords = f.readlines()
+    accuracy = np.zeros(200);
+    correct = 0
+    incorrect =0
+    for i in range(1,201):
+        filename = 'data/test_img' + str(i) + ".txt"
+        features = np.genfromtxt(filename)
+        word = (str)(predictStringWithMarginals(features, featureParams, transitiveParams))
+        trueWord = testWords[i-1]
+        bitDifference = 0
+        for k in range(len(word)):
+            if word[k] == trueWord[k]:
+                correct += 1
+            else:
+                incorrect += 1
+#        accuracy[i-1] = correct/len(word)
+  #      print(word + "\t" + trueWord + "\t")
+#    print(str(np.sum(accuracy)/200))
+    print("correct = " + str(correct) + "incorrect = " + str(incorrect))
+    accuracy = (float)(correct) / (float)(correct + incorrect)
+    print(accuracy)
+
 def main():
 
     featureParams = np.genfromtxt('model/feature-params.txt')
@@ -202,7 +247,7 @@ def main():
 
 
   #  computeMessagePassing(feature, cliquePotential(feature))
-    dataSize = [50, 100, 150, 200, 250, 300, 350, 400]
+    dataSize = [50, 100, 150, 250, 300, 350, 400]
 
  #   gradientFunctionFeatureParam(featureParams, transitiveParams, 50)
  #   gradientFunctionTransitiveParam(featureParams, transitiveParams)
@@ -216,8 +261,10 @@ def main():
         t = (time.clock() - start)*1000
         print(str(N) + " traning data: " + str(t))
         trainig_time.append(t)
-        #featureParams = np.reshape(sol[0][:10*321], (10, 321))
-        #transitiveParams = np.reshape(sol[0][10*321:], (10, 10))
+        featureParams = np.reshape(sol[0][:10*321], (10, 321))
+        transitiveParams = np.reshape(sol[0][10*321:], (10, 10))
+     #   computeModelAccuracy(featureParams, transitiveParams)
+        computeLogLikelihoodTestSet(featureParams, transitiveParams)
     plt.plot(dataSize, trainig_time)
     plt.axis(dataSize)
     plt.ylabel("time (ms)")
