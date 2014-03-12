@@ -4,17 +4,20 @@ import numpy as np
 import itertools
 import math
 from scipy import optimize
+import time
+import matplotlib.pyplot as plt
+
 
 
 charMap = {0:'e', 1:'t', 2:'a', 3:'i', 4:'n', 5:'o', 6:'s', 7:'h', 8:'r', 9:'d'}
 invCharMap = {'e':0, 't':1, 'a':2, 'i':3, 'n':4, 'o':5, 's':6, 'h':7, 'r':8, 'd':9}
 
-N = 50
+N = 0
 
 f = open('data/train_words.txt', 'r')
 trainWords = f.readlines()
 word_feature = list()
-for i in range(1, (N+1)):
+for i in range(1, 401):
     filename = 'data/train_img' + str(i) + ".txt"
     word = trainWords[i-1][:-1]
     feature = np.genfromtxt(filename)
@@ -25,35 +28,42 @@ for i in range(1, (N+1)):
 # for problem 2.1
 def cliquePotential(features, featureParams, transitiveParams):
     psimaps = [np.zeros((10,10)) for i in range(len(features)-1)]
-    # for cluster 1
-    # i: index of y0
-    # j: index of y1
+
     for k in range(len(features)-1):
-        for i in range(10):
-            for j in range(10):
-                if k != len(features)-2:
-                    psimaps[k][i][j] = sum(featureParams[i] * features[k]) + transitiveParams[i][j]
-                else:
-                    psimaps[k][i][j] = sum(featureParams[i] * features[k]) + sum(featureParams[j] * features[k+1]) + transitiveParams[i][j]
-  #  printETRtable(psimaps[-1])
+        if k != len(features)-2:
+            psimaps[k] = np.reshape(np.sum(featureParams*features[k], axis=1), (10,1)) + transitiveParams
+        else:
+            psimaps[k] = np.reshape(np.sum(featureParams*features[k], axis=1), (10,1)) + (np.sum(featureParams * features[k+1], axis=1)) + transitiveParams
     return psimaps
 
 
 
+
+# for problem 2.2
+
 # for problem 2.2
 def computeMessagePassing(features, potentialMap):
-#    potentialMap = cliquePotential(features)
     cliqueNumber = len(potentialMap)
     forwardMessages = [np.zeros(10) for i in range((cliqueNumber-1))]
     backwardMessages = [np.zeros(10) for i in range((cliqueNumber-1))]
 
-    potentialMapExp = np.exp(potentialMap)
     # very first forward message
-    forwardMessages[0] = np.log(np.sum(potentialMapExp[0], axis=0))
+    for i in range(10):
+        sum = 0.0
+        for j in range(10):
+            sum = sum + math.exp(potentialMap[0][j][i])
+    #    print(charMap[i] + "\t" + str(math.log(sum)))
+        forwardMessages[0][i] = math.log(sum)
+
 
     # rest of the chains
     for k in range(1, len(forwardMessages)):
-        forwardMessages[k] = np.log(np.sum(potentialMapExp[k], axis=0) + forwardMessages[k-1])
+        for i in range(10):
+            sum = 0.0
+            for j in range(10):
+                sum = sum + math.exp(potentialMap[k][j][i] + forwardMessages[k-1][j])
+            forwardMessages[k][i] = math.log(sum)
+
 
    # very first backward message
     for i in range(10):
@@ -107,7 +117,7 @@ def predictStringWithMarginals(feature):
 def derivativeFunctions(x):
     featureParams = np.reshape(x[:10*321], (10, 321))
     transitiveParams = np.reshape(x[10*321:], (10, 10))
-    N = 50
+    global N
     result = np.zeros(10*321 + 10*10)
     f = gradientFunctionFeatureParam(featureParams, transitiveParams, N)
     t = gradientFunctionTransitiveParam(featureParams, transitiveParams, N)
@@ -121,6 +131,7 @@ def computeLogLikelihood(x):
     featureParams = np.reshape(x[:10*321], (10, 321))
     transitiveParams = np.reshape(x[10*321:], (10, 10))
     sum = 0
+    global N
     for i in range(N):
         word = word_feature[i][0]
         feature = word_feature[i][1]
@@ -179,7 +190,7 @@ def gradientFunctionFeatureParam(featureParams, transitiveParams, N):
                     gradient[k] += (binaryOccurrence - np.sum(marginal_probs[j-1], axis=0)[k]) * feature[j]
 
 
-      #  print(str(sum/(N-1)))
+   # print(gradient)
     return gradient/N*(-1)
 
 
@@ -188,17 +199,35 @@ def getCliquePotentialValue(feature, word, potentialMap, featureParams, transiti
      return np.sum([potentialMap[i][invCharMap[word[i]]][invCharMap[word[i+1]]] for i in range(len(word)-1)])
 def main():
 
- #   featureParams = np.genfromtxt('model/feature-params.txt')
- #   transitiveParams = np.genfromtxt('model/transition-params.txt')
+    featureParams = np.genfromtxt('model/feature-params.txt')
+    transitiveParams = np.genfromtxt('model/transition-params.txt')
 
 
+  #  computeMessagePassing(feature, cliquePotential(feature))
+    dataSize = [50, 100, 150, 200, 250, 300, 350, 400]
 
-#    gradientFunctionFeatureParam(featureParams, transitiveParams)
+ #   gradientFunctionFeatureParam(featureParams, transitiveParams, 50)
  #   gradientFunctionTransitiveParam(featureParams, transitiveParams)
-
-    x0 = np.zeros(10*321 + 10*10)
-    optimize.fmin_cg(computeLogLikelihood, x0, fprime=derivativeFunctions, args=())
-    print(x0)
+    global N
+    trainig_time = list()
+    for n in dataSize:
+        x0 = np.zeros(10*321 + 10*10)
+        start = time.clock()
+        N = n
+        sol = optimize.fmin_l_bfgs_b(computeLogLikelihood, x0, fprime=derivativeFunctions, args=())
+        t = (time.clock() - start)*1000
+        print(str(N) + " traning data: " + str(t))
+        trainig_time.append(t)
+        #featureParams = np.reshape(sol[0][:10*321], (10, 321))
+        #transitiveParams = np.reshape(sol[0][10*321:], (10, 10))
+    plt.plot(dataSize, trainig_time)
+    plt.axis(dataSize)
+    plt.ylabel("time (ms)")
+    plt.show()
+ #   print("feature params")
+ #   print(featureParams)
+ #   print("transitive params")
+ #   print(transitiveParams)
 
  #   computeLogLikelihood(featureParams, transitiveParams)
 #    f = open('data/test_words.txt', 'r')
