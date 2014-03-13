@@ -61,7 +61,6 @@ def cliquePotential(features, featureParams, transitiveParams):
             psimaps[k] = np.reshape(np.sum(featureParams*features[k], axis=1), (10,1)) + (np.sum(featureParams * features[k+1], axis=1)) + transitiveParams
     return psimaps
 
-# for problem 2.2
 
 # for problem 2.2
 def computeMessagePassing(features, potentialMap):
@@ -80,31 +79,9 @@ def computeMessagePassing(features, potentialMap):
    # rest of the chains
     for k in range(cliqueNumber-3,-1,-1):
         backwardMessages[k] = logsumexp((potentialMap[k+1] + backwardMessages[k+1]), axis=1)
-
-
-
     return [forwardMessages, backwardMessages]
 
 
-
-'''
-# for problem 2.3
-def computeLogBeliefs(feature, potentialMap, featureParams, transitiveParams):
- #   potentialMap = cliquePotential(feature)
-    messages = computeMessagePassing(feature, potentialMap)
-    forwardMessages = messages[0]
-    backwardMessages = messages[1]
-    cliqueNumber = len(potentialMap)
-
-    beliefs = [np.zeros((10,10)) for i in range((cliqueNumber))]
-
-    beliefs[0] = potentialMap[0] + backwardMessages[0]
-    for k in range(1, cliqueNumber-1):
-        beliefs[k] = potentialMap[k] + forwardMessages[k-1] + backwardMessages[k]
-
-    beliefs[cliqueNumber-1] =  potentialMap[cliqueNumber-1] + forwardMessages[cliqueNumber-2]
-    return beliefs
-'''
 
 # for problem 2.3
 def computeLogBeliefs(feature, potentialMap, featureParams, transitiveParams):
@@ -126,14 +103,10 @@ def computeLogBeliefs(feature, potentialMap, featureParams, transitiveParams):
     #    print(charMap[i] + "\t" + str(belief_2_3[i]))
 
     # belief for the last cluster
-#    print("B(Y3, Y4)")
-    # delta_{3->2}(Y3) = log \sum_{y4}(exp(Y3, Y4)
     for i in range(10):
         sum = 0.0
         for j in range(10):
             beliefs[cliqueNumber-1][i][j] =  potentialMap[cliqueNumber-1][i][j] + forwardMessages[cliqueNumber-2][i]
-#        print(charMap[i] + "\t" + str(belief_3_4[i]))
-  #  printETtable(beliefs[-1])
     return beliefs
 
 
@@ -220,15 +193,6 @@ def gradientFunctionTransitiveParam(featureParams, transitiveParams, N):
 
  #   print(gradient/N)
     return gradient/N*(-1)
-def printETRtable(map):
-    print(str(map[e][e]) + "\t" + str(map[e][t]) + "\t" + str(map[e][r]))
-    print(str(map[t][e]) + "\t" + str(map[t][t]) + "\t" + str(map[t][r]))
-    print(str(map[r][e]) + "\t" + str(map[r][t]) + "\t" + str(map[r][r]))
-
-
-def printETtable(map):
-    print(str(map[e][e]) + "\t" + str(map[e][t]))
-    print(str(map[t][e]) + "\t" + str(map[t][t]))
 
 def gradientFunctionFeatureParam(featureParams, transitiveParams, N):
     sum = 0
@@ -291,8 +255,8 @@ def computeModelAccuracy(featureParams, transitiveParams):
 
 def main():
 
-    featureParams = np.genfromtxt('model/feature-params.txt')
-    transitiveParams = np.genfromtxt('model/transition-params.txt')
+#    featureParams = np.genfromtxt('model/feature-params.txt')
+#    transitiveParams = np.genfromtxt('model/transition-params.txt')
 
 #    computeLogLikelihoodTestSet(featureParams, transitiveParams)
   #  computeMessagePassing(feature, cliquePotential(feature))
